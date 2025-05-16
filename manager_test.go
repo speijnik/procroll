@@ -5,7 +5,6 @@ import (
 	"io"
 	"log/slog"
 	"os"
-	"sync"
 	"syscall"
 	"testing"
 	"text/template"
@@ -109,6 +108,8 @@ func setupTestManager(t *testing.T) (*manager, func()) {
 		}
 
 		// Cancel any generation contexts to prevent goroutine leaks
+		m.generationsMutex.Lock()
+		defer m.generationsMutex.Unlock()
 		for _, g := range m.generations {
 			if mockG, ok := g.(*mockGeneration); ok && mockG.cmdExited != nil {
 				mockG.cmdExited()
@@ -128,10 +129,10 @@ func TestManager_Start(t *testing.T) {
 		defer cleanup()
 
 		// Mock the newGeneration function
-		genCreated := false
 		mockGen := &mockGeneration{identifier: 1}
+		genCreatedCtx, genCreated := context.WithCancel(t.Context())
 		m.newGeneration = func(_ *slog.Logger, identifier uint64, args []string, _ string, _ execer) generation {
-			genCreated = true
+			genCreated()
 			assert.Equal(t, uint64(1), identifier)
 			assert.Equal(t, []string{"test", "arg-1"}, args)
 			return mockGen
@@ -140,7 +141,12 @@ func TestManager_Start(t *testing.T) {
 		// Start the manager
 		err := m.Start()
 		assert.NoError(t, err)
-		assert.True(t, genCreated, "newGeneration was not called")
+		select {
+		case <-time.After(500 * time.Millisecond):
+			assert.Fail(t, "newGeneration was not called")
+		case <-genCreatedCtx.Done():
+			// fall-through
+		}
 
 		// Verify that the generation was added to the map
 		assert.Len(t, m.generations, 1)
@@ -235,9 +241,9 @@ func TestManager_Roll(t *testing.T) {
 		}
 
 		// Track shutdown of previous generation
-		shutdownCalled := false
+		shutdownCalledCtx, shutdownCalled := context.WithCancel(t.Context())
 		prevGen.shutdownFunc = func(signal os.Signal, timeout time.Duration) error {
-			shutdownCalled = true
+			shutdownCalled()
 			assert.Equal(t, syscall.SIGTERM, signal)
 			assert.Equal(t, m.conf.ShutdownTimeout, timeout)
 			return nil
@@ -251,11 +257,12 @@ func TestManager_Roll(t *testing.T) {
 		assert.Contains(t, m.generations, uint64(2))
 		assert.Equal(t, newGen, m.generations[2])
 
-		// Wait a bit for the goroutine to complete
-		time.Sleep(50 * time.Millisecond)
-
 		// Verify that the previous generation was shut down
-		assert.True(t, shutdownCalled, "shutdown was not called on previous processGeneration")
+		select {
+		case <-time.After(500 * time.Millisecond):
+			assert.Fail(t, "shutdown was not called on previous processGeneration")
+		case <-shutdownCalledCtx.Done():
+		}
 	})
 
 	t.Run("Failed to spawn new processGeneration", func(t *testing.T) {
@@ -342,21 +349,20 @@ func TestManager_Shutdown(t *testing.T) {
 	m.generations[2] = gen2
 
 	// Track shutdown of generations
-	var shutdownMutex sync.Mutex
-	shutdownCalled := make(map[uint64]bool)
+	gen1ShutdownCtx, gen1ShutdownCalled := context.WithCancel(t.Context())
+	defer gen1ShutdownCalled()
+
+	gen2ShutdownCtx, gen2ShutdownCalled := context.WithCancel(t.Context())
+	defer gen2ShutdownCalled()
 
 	gen1.shutdownFunc = func(signal os.Signal, _ time.Duration) error {
-		shutdownMutex.Lock()
-		defer shutdownMutex.Unlock()
-		shutdownCalled[1] = true
+		gen1ShutdownCalled()
 		assert.Equal(t, syscall.SIGTERM, signal)
 		return nil
 	}
 
 	gen2.shutdownFunc = func(signal os.Signal, _ time.Duration) error {
-		shutdownMutex.Lock()
-		defer shutdownMutex.Unlock()
-		shutdownCalled[2] = true
+		gen2ShutdownCalled()
 		assert.Equal(t, syscall.SIGTERM, signal)
 		return nil
 	}
@@ -365,14 +371,21 @@ func TestManager_Shutdown(t *testing.T) {
 	err := m.Shutdown()
 	assert.NoError(t, err)
 
-	// Wait a bit for the goroutines to complete
-	time.Sleep(50 * time.Millisecond)
+	timeout := time.After(500 * time.Millisecond)
 
-	// Verify that all generations were shut down
-	shutdownMutex.Lock()
-	assert.True(t, shutdownCalled[1], "shutdown was not called on processGeneration 1")
-	assert.True(t, shutdownCalled[2], "shutdown was not called on processGeneration 2")
-	shutdownMutex.Unlock()
+	select {
+	case <-timeout:
+		assert.Fail(t, "shutdown was not called on processGeneration 1")
+	case <-gen1ShutdownCtx.Done():
+		// fall-through
+	}
+
+	select {
+	case <-timeout:
+		assert.Fail(t, "shutdown was not called on processGeneration 2")
+	case <-gen2ShutdownCtx.Done():
+		// fall-through
+	}
 }
 
 func TestManager_Stop(t *testing.T) {
@@ -388,9 +401,10 @@ func TestManager_Stop(t *testing.T) {
 	m.generations[1] = gen1
 
 	// Track shutdown of generations
-	shutdownCalled := false
+	shutdownCalledCtx, shutdownCalled := context.WithCancel(t.Context())
+	defer shutdownCalled()
 	gen1.shutdownFunc = func(signal os.Signal, _ time.Duration) error {
-		shutdownCalled = true
+		shutdownCalled()
 		assert.Equal(t, syscall.SIGKILL, signal)
 		return nil
 	}
@@ -399,11 +413,12 @@ func TestManager_Stop(t *testing.T) {
 	err := m.Stop()
 	assert.NoError(t, err)
 
-	// Wait a bit for the goroutines to complete
-	time.Sleep(50 * time.Millisecond)
-
-	// Verify that the generation was shut down
-	assert.True(t, shutdownCalled, "shutdown was not called on processGeneration")
+	select {
+	case <-time.After(500 * time.Millisecond):
+		assert.Fail(t, "shutdown was not called on processGeneration")
+	case <-shutdownCalledCtx.Done():
+		// fall-through
+	}
 }
 
 func TestManager_SpawnGeneration(t *testing.T) {

@@ -130,7 +130,6 @@ func setupTestGeneration(t *testing.T) (*processGeneration, *mockCommand, func()
 		// Close the socket if it's open
 		if g.notifySocket != nil {
 			g.notifySocket.Close()
-			g.notifySocket = nil
 		}
 
 		// Remove the temporary directory
