@@ -12,6 +12,7 @@ builds:
     goarch:
       - amd64
       - arm64
+    main: ./cmd/procroll
 release:
   github:
   name_template: "{{.Version}}"
