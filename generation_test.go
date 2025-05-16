@@ -16,7 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockProcess implements osProcess for testing
+// mockProcess implements osProcess for testing.
 type mockProcess struct {
 	signalFunc func(sig os.Signal) error
 }
@@ -28,7 +28,7 @@ func (m *mockProcess) Signal(sig os.Signal) error {
 	return nil
 }
 
-// mockCommand implements command for testing
+// mockCommand implements command for testing.
 type mockCommand struct {
 	env     []string
 	stdout  io.Writer
@@ -69,7 +69,7 @@ func (m *mockCommand) Wait() error {
 	return nil
 }
 
-// mockExecer implements execer for testing
+// mockExecer implements execer for testing.
 type mockExecer struct {
 	commandFunc func(name string, arg ...string) command
 }
@@ -81,12 +81,12 @@ func (m *mockExecer) Command(name string, arg ...string) command {
 	return &mockCommand{}
 }
 
-// setupTestGeneration creates a processGeneration with mocked dependencies for testing
-func setupTestGeneration(t *testing.T) (*processGeneration, *mockExecer, *mockCommand, func()) {
+// setupTestGeneration creates a processGeneration with mocked dependencies for testing.
+func setupTestGeneration(t *testing.T) (*processGeneration, *mockCommand, func()) {
 	t.Helper()
 
 	// Create a temporary socket path with a shorter path to avoid "bind: invalid argument" errors
-	tempDir, err := os.MkdirTemp("", "procroll-test-")
+	tempDir, err := os.MkdirTemp("", "procroll-test-") //nolint:usetesting // test tempdir too long for socket on macOS
 	require.NoError(t, err)
 
 	socketPath := path.Join(tempDir, "notify.sock")
@@ -98,7 +98,7 @@ func setupTestGeneration(t *testing.T) (*processGeneration, *mockExecer, *mockCo
 
 	// Create a mock execer
 	mockExec := &mockExecer{
-		commandFunc: func(name string, arg ...string) command {
+		commandFunc: func(_ string, _ ...string) command {
 			return mockCmd
 		},
 	}
@@ -107,8 +107,8 @@ func setupTestGeneration(t *testing.T) (*processGeneration, *mockExecer, *mockCo
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	// Create the processGeneration
-	cmdReadyCtx, cmdReady := context.WithCancel(context.Background())
-	cmdExitedCtx, cmdExited := context.WithCancel(context.Background())
+	cmdReadyCtx, cmdReady := context.WithCancel(t.Context())
+	cmdExitedCtx, cmdExited := context.WithCancel(t.Context())
 	g := &processGeneration{
 		logger:       logger,
 		identifier:   1,
@@ -137,7 +137,7 @@ func setupTestGeneration(t *testing.T) (*processGeneration, *mockExecer, *mockCo
 		os.RemoveAll(tempDir)
 	}
 
-	return g, mockExec, mockCmd, cleanup
+	return g, mockCmd, cleanup
 }
 
 func TestNewGeneration(t *testing.T) {
@@ -165,7 +165,7 @@ func TestNewGeneration(t *testing.T) {
 }
 
 func TestGeneration_Id(t *testing.T) {
-	gen, _, _, cleanup := setupTestGeneration(t)
+	gen, _, cleanup := setupTestGeneration(t)
 	defer cleanup()
 
 	// Set a specific identifier
@@ -177,7 +177,7 @@ func TestGeneration_Id(t *testing.T) {
 
 func TestGeneration_Spawn(t *testing.T) {
 	t.Run("Successful spawn", func(t *testing.T) {
-		gen, _, mockCmd, cleanup := setupTestGeneration(t)
+		gen, mockCmd, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		startCalled := false
@@ -195,7 +195,7 @@ func TestGeneration_Spawn(t *testing.T) {
 	})
 
 	t.Run("Spawn with Start error", func(t *testing.T) {
-		gen, _, mockCmd, cleanup := setupTestGeneration(t)
+		gen, mockCmd, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		// Create a socket first to simulate the socket already existing
@@ -223,7 +223,7 @@ func TestGeneration_Spawn(t *testing.T) {
 
 func TestGeneration_WaitReady(t *testing.T) {
 	t.Run("Timeout", func(t *testing.T) {
-		gen, _, _, cleanup := setupTestGeneration(t)
+		gen, _, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		err := gen.waitReady(10 * time.Millisecond)
@@ -231,7 +231,7 @@ func TestGeneration_WaitReady(t *testing.T) {
 	})
 
 	t.Run("Successful wait", func(t *testing.T) {
-		gen, _, _, cleanup := setupTestGeneration(t)
+		gen, _, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		go func() {
@@ -246,13 +246,13 @@ func TestGeneration_WaitReady(t *testing.T) {
 
 func TestGeneration_Shutdown(t *testing.T) {
 	t.Run("Successful shutdown", func(t *testing.T) {
-		gen, _, _, cleanup := setupTestGeneration(t)
+		gen, _, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		// Create a mock process
 		signalCalled := false
 		gen.process = &mockProcess{
-			signalFunc: func(sig os.Signal) error {
+			signalFunc: func(_ os.Signal) error {
 				signalCalled = true
 				return nil
 			},
@@ -269,7 +269,7 @@ func TestGeneration_Shutdown(t *testing.T) {
 	})
 
 	t.Run("Timeout with SIGKILL", func(t *testing.T) {
-		gen, _, _, cleanup := setupTestGeneration(t)
+		gen, _, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		killCalled := false
@@ -293,11 +293,11 @@ func TestGeneration_Shutdown(t *testing.T) {
 	})
 
 	t.Run("Signal error", func(t *testing.T) {
-		gen, _, _, cleanup := setupTestGeneration(t)
+		gen, _, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		gen.process = &mockProcess{
-			signalFunc: func(sig os.Signal) error {
+			signalFunc: func(_ os.Signal) error {
 				return context.Canceled
 			},
 		}
@@ -309,7 +309,7 @@ func TestGeneration_Shutdown(t *testing.T) {
 
 func TestGeneration_HandleNotifySocket(t *testing.T) {
 	t.Run("READY notification", func(t *testing.T) {
-		gen, _, _, cleanup := setupTestGeneration(t)
+		gen, _, cleanup := setupTestGeneration(t)
 		defer cleanup()
 
 		// Create a temporary socket for testing
@@ -318,7 +318,7 @@ func TestGeneration_HandleNotifySocket(t *testing.T) {
 		// Use a shorter path by using the last part of the temp directory
 		dirParts := strings.Split(tempDir, "/")
 		shortDir := "/tmp/" + dirParts[len(dirParts)-1]
-		mkdirErr := os.MkdirAll(shortDir, 0755)
+		mkdirErr := os.MkdirAll(shortDir, 0o755)
 		require.NoError(t, mkdirErr, "Failed to create short temp directory")
 		socketPath := shortDir + "/test.sock"
 

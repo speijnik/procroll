@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/speijnik/procroll/internal/cmd"
 	"os"
+
+	"github.com/speijnik/procroll/internal/cmd"
 )
 
 func main() {

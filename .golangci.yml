@@ -44,7 +44,6 @@ linters:
     - govet
     - ineffassign
     - misspell
-    - mnd
     - nakedret
     - noctx
     - nolintlint

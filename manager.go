@@ -12,7 +12,7 @@ import (
 	"text/template"
 )
 
-// Manager defines the procroll manager interface
+// Manager defines the procroll manager interface.
 type Manager interface {
 	// Start causes the wrapped process to be executed and the overall manager started
 	Start() error
@@ -175,7 +175,7 @@ func (m *manager) shutdown(signal os.Signal) error {
 	for _, gen := range runningGenerations {
 		go func() {
 			defer wg.Done()
-			gen.shutdown(signal, m.conf.ShutdownTimeout)
+			_ = gen.shutdown(signal, m.conf.ShutdownTimeout)
 			m.logger.Info("processGeneration shutdown complete", "processGeneration", gen.id())
 		}()
 	}

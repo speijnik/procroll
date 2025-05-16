@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Config contains the procroll configuration
+// Config contains the procroll configuration.
 type Config struct {
 	TempDir         string
 	ShutdownTimeout time.Duration

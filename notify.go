@@ -1,30 +1,31 @@
 package procoll
 
 import (
-	"fmt"
-	"golang.org/x/sys/unix"
 	"net"
 	"os"
+	"strconv"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
-	// NotifyStateReady designates that the process is ready
+	// NotifyStateReady designates that the process is ready.
 	NotifyStateReady = "READY=1"
 
-	// NotifyStateStopping designates that the process is stopping
+	// NotifyStateStopping designates that the process is stopping.
 	NotifyStateStopping = "STOPPING=1"
 
-	// NotifyStateReloading designates that the process is reloading
+	// NotifyStateReloading designates that the process is reloading.
 	NotifyStateReloading = "RELOADING=1"
 
-	// NotifyStateStatusPrefix is the prefix for an arbitrary status message
+	// NotifyStateStatusPrefix is the prefix for an arbitrary status message.
 	NotifyStateStatusPrefix = "STATUS="
 
-	// NotifyStateMontonicUsecPrefix is the prefix for the monotonic usec  status
+	// NotifyStateMontonicUsecPrefix is the prefix for the monotonic usec  status.
 	NotifyStateMontonicUsecPrefix = "MONOTONIC_USEC="
 )
 
-// SDNotify sends a systemd notification with the given state
+// SDNotify sends a systemd notification with the given state.
 func SDNotify(state string) error {
 	socketPath := os.Getenv("NOTIFY_SOCKET")
 	if socketPath == "" {
@@ -45,7 +46,7 @@ func SDNotify(state string) error {
 	return nil
 }
 
-// SDNotifyReloading sents a systemd "reloading" notification
+// SDNotifyReloading sents a systemd "reloading" notification.
 func SDNotifyReloading() error {
 	var ts unix.Timespec
 	if err := unix.ClockGettime(unix.CLOCK_MONOTONIC, &ts); err != nil {
@@ -53,5 +54,5 @@ func SDNotifyReloading() error {
 	}
 	nsecs := ts.Sec*1e09 + ts.Nsec
 
-	return SDNotify(NotifyStateReloading + "\n" + NotifyStateMontonicUsecPrefix + fmt.Sprintf("%d", nsecs/1000))
+	return SDNotify(NotifyStateReloading + "\n" + NotifyStateMontonicUsecPrefix + strconv.FormatInt(nsecs/1000, 10))
 }

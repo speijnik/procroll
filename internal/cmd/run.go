@@ -2,26 +2,17 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/speijnik/procroll"
-	"github.com/spf13/cobra"
-	"golang.org/x/sys/unix"
 	"log/slog"
 	"os"
 	"os/signal"
 	"strconv"
 	"syscall"
 	"time"
-	"unicode"
-)
 
-func stringIsNumeric(s string) bool {
-	for _, r := range s {
-		if !unicode.IsNumber(r) {
-			return false
-		}
-	}
-	return true
-}
+	procoll "github.com/speijnik/procroll"
+	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
+)
 
 var (
 	debug          bool
@@ -32,7 +23,7 @@ var (
 		Use:   "run <path/to/binary> [-- args]",
 		Short: "Wrap command inside procroll process manager",
 		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(_ *cobra.Command, args []string) error {
 			ch := make(chan os.Signal, 1)
 
 			signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
@@ -92,7 +83,6 @@ var (
 						}
 
 					}
-
 				}
 			}()
 

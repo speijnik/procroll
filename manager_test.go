@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockGeneration implements the generation interface for testing
+// mockGeneration implements the generation interface for testing.
 type mockGeneration struct {
 	identifier uint64
 
@@ -62,12 +62,12 @@ func (m *mockGeneration) id() uint64 {
 	return m.identifier
 }
 
-// setupTestManager creates a manager with mocked dependencies for testing
-func setupTestManager(t *testing.T) (*manager, *mockExecer, func()) {
+// setupTestManager creates a manager with mocked dependencies for testing.
+func setupTestManager(t *testing.T) (*manager, func()) {
 	t.Helper()
 
 	// Create a temporary directory
-	tempDir, err := os.MkdirTemp("", "procroll-manager-test-")
+	tempDir, err := os.MkdirTemp("", "procroll-manager-test-") //nolint:usetesting // test tempdir too long for socket on macOS
 	require.NoError(t, err)
 
 	// Create a test logger
@@ -119,18 +119,18 @@ func setupTestManager(t *testing.T) (*manager, *mockExecer, func()) {
 		os.RemoveAll(tempDir)
 	}
 
-	return m, mockExec, cleanup
+	return m, cleanup
 }
 
 func TestManager_Start(t *testing.T) {
 	t.Run("Successful start", func(t *testing.T) {
-		m, _, cleanup := setupTestManager(t)
+		m, cleanup := setupTestManager(t)
 		defer cleanup()
 
 		// Mock the newGeneration function
 		genCreated := false
 		mockGen := &mockGeneration{identifier: 1}
-		m.newGeneration = func(logger *slog.Logger, identifier uint64, args []string, socketPath string, execer execer) generation {
+		m.newGeneration = func(_ *slog.Logger, identifier uint64, args []string, _ string, _ execer) generation {
 			genCreated = true
 			assert.Equal(t, uint64(1), identifier)
 			assert.Equal(t, []string{"test", "arg-1"}, args)
@@ -148,7 +148,7 @@ func TestManager_Start(t *testing.T) {
 	})
 
 	t.Run("Failed to spawn processGeneration", func(t *testing.T) {
-		m, _, cleanup := setupTestManager(t)
+		m, cleanup := setupTestManager(t)
 		defer cleanup()
 
 		// Mock the newGeneration function to return a generation that fails to spawn
@@ -158,7 +158,7 @@ func TestManager_Start(t *testing.T) {
 				return context.Canceled
 			},
 		}
-		m.newGeneration = func(logger *slog.Logger, identifier uint64, args []string, socketPath string, execer execer) generation {
+		m.newGeneration = func(_ *slog.Logger, _ uint64, _ []string, _ string, _ execer) generation {
 			return mockGen
 		}
 
@@ -169,17 +169,17 @@ func TestManager_Start(t *testing.T) {
 	})
 
 	t.Run("Failed to wait ready", func(t *testing.T) {
-		m, _, cleanup := setupTestManager(t)
+		m, cleanup := setupTestManager(t)
 		defer cleanup()
 
 		// Mock the newGeneration function to return a generation that fails to wait ready
 		mockGen := &mockGeneration{
 			identifier: 1,
-			waitReadyFunc: func(timeout time.Duration) error {
+			waitReadyFunc: func(_ time.Duration) error {
 				return context.Canceled
 			},
 		}
-		m.newGeneration = func(logger *slog.Logger, identifier uint64, args []string, socketPath string, execer execer) generation {
+		m.newGeneration = func(_ *slog.Logger, _ uint64, _ []string, _ string, _ execer) generation {
 			return mockGen
 		}
 
@@ -191,11 +191,11 @@ func TestManager_Start(t *testing.T) {
 }
 
 func TestManager_Wait(t *testing.T) {
-	m, _, cleanup := setupTestManager(t)
+	m, cleanup := setupTestManager(t)
 	defer cleanup()
 
 	// Create a context for shutdown
-	m.shutdownCompleteCtx, m.shutdownComplete = context.WithCancel(context.Background())
+	m.shutdownCompleteCtx, m.shutdownComplete = context.WithCancel(t.Context())
 
 	// Start a goroutine to wait for shutdown
 	waitDone := make(chan struct{})
@@ -219,7 +219,7 @@ func TestManager_Wait(t *testing.T) {
 
 func TestManager_Roll(t *testing.T) {
 	t.Run("Successful roll", func(t *testing.T) {
-		m, _, cleanup := setupTestManager(t)
+		m, cleanup := setupTestManager(t)
 		defer cleanup()
 
 		// Create a previous generation
@@ -229,7 +229,7 @@ func TestManager_Roll(t *testing.T) {
 
 		// Mock the newGeneration function
 		newGen := &mockGeneration{identifier: 2}
-		m.newGeneration = func(logger *slog.Logger, identifier uint64, args []string, socketPath string, execer execer) generation {
+		m.newGeneration = func(_ *slog.Logger, identifier uint64, _ []string, _ string, _ execer) generation {
 			assert.Equal(t, uint64(2), identifier)
 			return newGen
 		}
@@ -259,7 +259,7 @@ func TestManager_Roll(t *testing.T) {
 	})
 
 	t.Run("Failed to spawn new processGeneration", func(t *testing.T) {
-		m, _, cleanup := setupTestManager(t)
+		m, cleanup := setupTestManager(t)
 		defer cleanup()
 
 		// Create a previous generation
@@ -274,7 +274,7 @@ func TestManager_Roll(t *testing.T) {
 				return context.Canceled
 			},
 		}
-		m.newGeneration = func(logger *slog.Logger, identifier uint64, args []string, socketPath string, execer execer) generation {
+		m.newGeneration = func(_ *slog.Logger, _ uint64, _ []string, _ string, _ execer) generation {
 			return newGen
 		}
 
@@ -289,7 +289,7 @@ func TestManager_Roll(t *testing.T) {
 	})
 
 	t.Run("Failed to wait ready", func(t *testing.T) {
-		m, _, cleanup := setupTestManager(t)
+		m, cleanup := setupTestManager(t)
 		defer cleanup()
 
 		// Create a previous generation
@@ -300,17 +300,17 @@ func TestManager_Roll(t *testing.T) {
 		// Mock the newGeneration function to return a generation that fails to wait ready
 		newGen := &mockGeneration{
 			identifier: 2,
-			waitReadyFunc: func(timeout time.Duration) error {
+			waitReadyFunc: func(_ time.Duration) error {
 				return context.Canceled
 			},
 		}
-		m.newGeneration = func(logger *slog.Logger, identifier uint64, args []string, socketPath string, execer execer) generation {
+		m.newGeneration = func(_ *slog.Logger, _ uint64, _ []string, _ string, _ execer) generation {
 			return newGen
 		}
 
 		// Track shutdown of new generation
 		shutdownCalled := false
-		newGen.shutdownFunc = func(signal os.Signal, timeout time.Duration) error {
+		newGen.shutdownFunc = func(signal os.Signal, _ time.Duration) error {
 			shutdownCalled = true
 			assert.Equal(t, syscall.SIGKILL, signal)
 			return nil
@@ -327,17 +327,17 @@ func TestManager_Roll(t *testing.T) {
 }
 
 func TestManager_Shutdown(t *testing.T) {
-	m, _, cleanup := setupTestManager(t)
+	m, cleanup := setupTestManager(t)
 	defer cleanup()
 
 	// Create a context for shutdown
-	m.shutdownCompleteCtx, m.shutdownComplete = context.WithCancel(context.Background())
+	m.shutdownCompleteCtx, m.shutdownComplete = context.WithCancel(t.Context())
 
 	// Create some generations with initialized contexts
 	gen1 := &mockGeneration{identifier: 1}
-	gen1.cmdExitedCtx, gen1.cmdExited = context.WithCancel(context.Background())
+	gen1.cmdExitedCtx, gen1.cmdExited = context.WithCancel(t.Context())
 	gen2 := &mockGeneration{identifier: 2}
-	gen2.cmdExitedCtx, gen2.cmdExited = context.WithCancel(context.Background())
+	gen2.cmdExitedCtx, gen2.cmdExited = context.WithCancel(t.Context())
 	m.generations[1] = gen1
 	m.generations[2] = gen2
 
@@ -345,7 +345,7 @@ func TestManager_Shutdown(t *testing.T) {
 	var shutdownMutex sync.Mutex
 	shutdownCalled := make(map[uint64]bool)
 
-	gen1.shutdownFunc = func(signal os.Signal, timeout time.Duration) error {
+	gen1.shutdownFunc = func(signal os.Signal, _ time.Duration) error {
 		shutdownMutex.Lock()
 		defer shutdownMutex.Unlock()
 		shutdownCalled[1] = true
@@ -353,7 +353,7 @@ func TestManager_Shutdown(t *testing.T) {
 		return nil
 	}
 
-	gen2.shutdownFunc = func(signal os.Signal, timeout time.Duration) error {
+	gen2.shutdownFunc = func(signal os.Signal, _ time.Duration) error {
 		shutdownMutex.Lock()
 		defer shutdownMutex.Unlock()
 		shutdownCalled[2] = true
@@ -376,20 +376,20 @@ func TestManager_Shutdown(t *testing.T) {
 }
 
 func TestManager_Stop(t *testing.T) {
-	m, _, cleanup := setupTestManager(t)
+	m, cleanup := setupTestManager(t)
 	defer cleanup()
 
 	// Create a context for shutdown
-	m.shutdownCompleteCtx, m.shutdownComplete = context.WithCancel(context.Background())
+	m.shutdownCompleteCtx, m.shutdownComplete = context.WithCancel(t.Context())
 
 	// Create some generations with initialized contexts
 	gen1 := &mockGeneration{identifier: 1}
-	gen1.cmdExitedCtx, gen1.cmdExited = context.WithCancel(context.Background())
+	gen1.cmdExitedCtx, gen1.cmdExited = context.WithCancel(t.Context())
 	m.generations[1] = gen1
 
 	// Track shutdown of generations
 	shutdownCalled := false
-	gen1.shutdownFunc = func(signal os.Signal, timeout time.Duration) error {
+	gen1.shutdownFunc = func(signal os.Signal, _ time.Duration) error {
 		shutdownCalled = true
 		assert.Equal(t, syscall.SIGKILL, signal)
 		return nil
@@ -407,12 +407,12 @@ func TestManager_Stop(t *testing.T) {
 }
 
 func TestManager_SpawnGeneration(t *testing.T) {
-	m, _, cleanup := setupTestManager(t)
+	m, cleanup := setupTestManager(t)
 	defer cleanup()
 
 	// Mock the newGeneration function
 	mockGen := &mockGeneration{identifier: 1}
-	m.newGeneration = func(logger *slog.Logger, identifier uint64, args []string, socketPath string, execer execer) generation {
+	m.newGeneration = func(_ *slog.Logger, identifier uint64, args []string, _ string, _ execer) generation {
 		assert.Equal(t, uint64(1), identifier)
 		assert.Equal(t, []string{"test", "arg-1"}, args)
 		return mockGen

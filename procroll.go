@@ -6,7 +6,7 @@ import (
 	"text/template"
 )
 
-// New initializes a new procroll process manager instance
+// New initializes a new procroll process manager instance.
 func New(args []string, logger *slog.Logger, conf Config) (Manager, error) {
 	argTemplates := make([]*template.Template, len(args))
 	for i, arg := range args {

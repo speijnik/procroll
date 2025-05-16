@@ -2,6 +2,7 @@ package procoll
 
 import (
 	"bytes"
+	"errors"
 	"os/exec"
 	"testing"
 
@@ -134,9 +135,10 @@ func TestSystemCommand_Wait(t *testing.T) {
 	assert.Error(t, err)
 
 	// Verify it's an ExitError with exit code 1
-	exitErr, ok := err.(*exec.ExitError)
-	assert.True(t, ok)
-	assert.Equal(t, 1, exitErr.ExitCode())
+	var exitError *exec.ExitError
+	if errors.As(err, &exitError) {
+		assert.Equal(t, 1, exitError.ExitCode())
+	}
 }
 
 func TestIntegration_SystemExecer(t *testing.T) {

@@ -140,7 +140,6 @@ func (gen *processGeneration) handleNotifySocket() {
 			gen.logger.Warn("failed to forward status notification", "processGeneration", gen.identifier, "status", line[len(NotifyStateStatusPrefix):], "error", err)
 		}
 	}
-
 }
 
 func (gen *processGeneration) waitReady(timeout time.Duration) error {
@@ -170,7 +169,6 @@ func (gen *processGeneration) shutdown(signal os.Signal, timeout time.Duration) 
 
 	case <-gen.cmdExitedCtx.Done():
 		// fall-through
-
 	}
 
 	return nil
