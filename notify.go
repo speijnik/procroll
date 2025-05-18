@@ -21,8 +21,8 @@ const (
 	// NotifyStateStatusPrefix is the prefix for an arbitrary status message.
 	NotifyStateStatusPrefix = "STATUS="
 
-	// NotifyStateMontonicUsecPrefix is the prefix for the monotonic usec  status.
-	NotifyStateMontonicUsecPrefix = "MONOTONIC_USEC="
+	// NotifyStateMonotonicUsecPrefix is the prefix for the monotonic usec status.
+	NotifyStateMonotonicUsecPrefix = "MONOTONIC_USEC="
 )
 
 // SDNotify sends a systemd notification with the given state.
@@ -54,5 +54,5 @@ func SDNotifyReloading() error {
 	}
 	nsecs := ts.Sec*1e09 + ts.Nsec
 
-	return SDNotify(NotifyStateReloading + "\n" + NotifyStateMontonicUsecPrefix + strconv.FormatInt(nsecs/1000, 10))
+	return SDNotify(NotifyStateReloading + "\n" + NotifyStateMonotonicUsecPrefix + strconv.FormatInt(nsecs/1000, 10))
 }
