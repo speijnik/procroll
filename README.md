@@ -27,7 +27,7 @@ Its design is inspired by Unix philosophy, specifically by trying to do exactly 
 * take care of sockets
 * take care of being able to run two instances of the same service at once
 
-*procroll* relies on other approaches to have a truly interruption-free restart, and can be used together with:
+*procroll* **relies on** other approaches to have a truly interruption-free restart, and can be used together with:
 
 * network services using `SO_REUSEPORT` and supplying sdnotify-compatible rediness reports
 * *podman* containers using `SO_REUSEPORT` and `--net=host` and containing a `HEALTHCHECK` configuration
@@ -42,7 +42,21 @@ Its design is inspired by Unix philosophy, specifically by trying to do exactly 
 
 ## Example
 
+A full example using a minimal container combined with systemd can be found in [examples/systemd-podman], which can be tested
+as follows:
+
 ```shell
-# TBD
-procroll run podman run --rm=true --name=procroll-example{{ .Generation }} 
+cd examples/systemd-podman
+# build container image
+podman build -t localhost/procroll-podman-systemd-example:latest .
+# install the systemd unit
+mkdir -p ~/.config/systemd/user/
+cp procroll-example.service ~/.config/systemd/user/
+systemctl --user daemon-reload
+
+# start the service
+systemctl --user start procroll-example.service
+
+# trigger a systemd reload to initiate a rolling update
+systemctl --user reload procroll-example.service
 ```
