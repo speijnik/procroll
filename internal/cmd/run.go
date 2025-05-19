@@ -9,9 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	procoll "github.com/speijnik/procroll"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
+
+	procoll "github.com/speijnik/procroll"
 )
 
 var (
